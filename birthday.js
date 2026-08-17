@@ -118,6 +118,267 @@ const isRecord =
 
 
 /* ============================================================
+   SOUND — a tiny Web Audio synth driven by the cue() system
+   ============================================================
+
+   No audio files: every sound is generated in the browser, so
+   there is nothing to host and nothing to license. It listens
+   to the same nine cue points the film already fires.
+   ============================================================ */
+
+const Sound = (() => {
+  const KEY = 'bday:muted';
+
+  let ac = null;
+  let master = null;
+  let padGain = null;
+  let padOn = false;
+  let noiseBuf = null;
+  let padNodes = [];
+
+  let muted = false;
+  try { muted = localStorage.getItem(KEY) === '1'; } catch (e) {}
+
+  const VOL = 0.85;
+
+  function boot() {
+    if (ac) return ac;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ac = new AC();
+    master = ac.createGain();
+    master.gain.value = muted ? 0.0001 : VOL;
+    master.connect(ac.destination);
+    return ac;
+  }
+
+  function resume() {
+    const c = boot();
+    if (c && c.state === 'suspended') {
+      const p = c.resume();
+      /* Chrome rejects this if there was no gesture yet. That is
+         expected, not an error -- the unlock listeners below will
+         catch the first real one. Swallow it so it does not show
+         up in the console as an unhandled rejection. */
+      if (p && p.catch) p.catch(() => {});
+    }
+    return c;
+  }
+
+
+  /*
+     One-time unlock. The film fires cues from GSAP timers, which
+     do not count as user activation, so without this the very
+     first cue would try to start audio from a timer callback and
+     be refused. Any real interaction anywhere unlocks it.
+  */
+
+  let unlocked = false;
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    resume();
+    ['pointerdown', 'touchstart', 'keydown'].forEach((ev) =>
+      document.removeEventListener(ev, unlock, true)
+    );
+  }
+
+  ['pointerdown', 'touchstart', 'keydown'].forEach((ev) =>
+    document.addEventListener(ev, unlock, true)
+  );
+
+  function env(g, t0, a, d, peak) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+  }
+
+  function blip(o1) {
+    const c = boot(); if (!c) return;
+    const {
+      f = 440, to = null, dur = 0.3, type = 'sine',
+      vol = 0.25, attack = 0.008, delay = 0, detune = 0,
+    } = o1;
+    const t0 = c.currentTime + delay;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = type;
+    o.detune.value = detune;
+    o.frequency.setValueAtTime(f, t0);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    env(g, t0, attack, dur, vol);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + dur + 0.12);
+  }
+
+  function noiseSrc() {
+    const c = boot(); if (!c) return null;
+    if (!noiseBuf) {
+      noiseBuf = c.createBuffer(1, Math.floor(c.sampleRate * 1.5), c.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const s = c.createBufferSource();
+    s.buffer = noiseBuf;
+    return s;
+  }
+
+  function swish(o1) {
+    const c = boot(); if (!c) return;
+    const { dur = 0.5, from = 400, to = 3000, vol = 0.2, delay = 0, q = 4 } = o1;
+    const t0 = c.currentTime + delay;
+    const s = noiseSrc(); if (!s) return;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = q;
+    bp.frequency.setValueAtTime(from, t0);
+    bp.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    const g = c.createGain();
+    env(g, t0, 0.03, dur, vol);
+    s.connect(bp); bp.connect(g); g.connect(master);
+    s.start(t0); s.stop(t0 + dur + 0.12);
+  }
+
+  function run(notes, step, vol) {
+    step = step || 0.12;
+    vol = vol || 0.16;
+    notes.forEach((n, i) => {
+      blip({ f: n, dur: 1.1, type: 'triangle', vol, attack: 0.004, delay: i * step });
+      blip({ f: n * 2, dur: 0.55, type: 'sine', vol: vol * 0.35, delay: i * step });
+    });
+  }
+
+  function startPad() {
+    const c = boot(); if (!c || padOn) return;
+    padOn = true;
+    padGain = c.createGain();
+    padGain.gain.value = 0.0001;
+    padGain.connect(master);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 850;
+    lp.connect(padGain);
+    [110, 164.81, 277.18, 329.63].forEach((f, i) => {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = i > 1 ? 'triangle' : 'sine';
+      o.frequency.value = f;
+      g.gain.value = 0.1 / (i + 1);
+      o.connect(g); g.connect(lp);
+      o.start();
+      const lfo = c.createOscillator();
+      const lg = c.createGain();
+      lfo.frequency.value = 0.05 + i * 0.017;
+      lg.gain.value = 3;
+      lfo.connect(lg); lg.connect(o.detune);
+      lfo.start();
+      padNodes.push(o, lfo);
+    });
+    padGain.gain.exponentialRampToValueAtTime(0.3, c.currentTime + 5);
+  }
+
+  function stopPad() {
+    if (!padGain || !ac) return;
+    const t0 = ac.currentTime;
+    padGain.gain.setTargetAtTime(0.0001, t0, 0.4);
+    /* actually stop the oscillators once faded, or every replay
+       would stack another four of them running forever */
+    const dying = padNodes;
+    padNodes = [];
+    dying.forEach((n) => {
+      try { n.stop(t0 + 1.6); } catch (e) {}
+    });
+    padOn = false;
+    padGain = null;
+  }
+
+  const CUES = {
+    draw() {
+      swish({ dur: 0.75, from: 180, to: 800, vol: 0.05, q: 9 });
+      blip({ f: 70, to: 118, dur: 0.75, type: 'sine', vol: 0.07 });
+    },
+    release() {
+      blip({ f: 950, to: 170, dur: 0.16, type: 'triangle', vol: 0.28 });
+    },
+    whoosh() {
+      swish({ dur: 0.4, from: 550, to: 4200, vol: 0.2, q: 2 });
+    },
+    hit() {
+      blip({ f: 220, to: 55, dur: 0.55, type: 'sine', vol: 0.42 });
+      swish({ dur: 0.28, from: 3200, to: 320, vol: 0.16, q: 1 });
+      startPad();
+    },
+    flood() {
+      run([523.25, 659.25, 783.99], 0.075, 0.12);
+      blip({ f: 130.81, to: 65.41, dur: 1.4, type: 'sine', vol: 0.2 });
+    },
+    wish() {
+      run([659.25, 783.99, 987.77], 0.12, 0.15);
+    },
+    wish2() {
+      run([783.99, 987.77, 1174.66, 1318.51], 0.1, 0.14);
+    },
+    bloom() {
+      run([880, 1108.73, 1318.51, 1760], 0.085, 0.15);
+      blip({ f: 87.31, to: 174.61, dur: 2.2, type: 'sine', vol: 0.14 });
+    },
+    grow() {
+      blip({ f: 98, to: 196, dur: 2.6, type: 'sine', vol: 0.13 });
+      run([440, 554.37, 659.25, 880], 0.22, 0.09);
+    },
+    magic() {
+      run([1318.51, 1567.98, 1760, 2093], 0.065, 0.12);
+    },
+  };
+
+  function setMuted(v) {
+    muted = !!v;
+    try { localStorage.setItem(KEY, muted ? '1' : '0'); } catch (e) {}
+    if (master && ac) {
+      master.gain.setTargetAtTime(muted ? 0.0001 : VOL, ac.currentTime, 0.12);
+    }
+  }
+
+  /* pull the whole mix down while a story video plays,
+     so the drone and the clip do not fight */
+  function duck(on) {
+    if (!master || !ac || muted) return;
+    master.gain.setTargetAtTime(
+      on ? 0.05 : VOL, ac.currentTime, 0.25
+    );
+  }
+
+  /* park the audio clock while the tab is hidden */
+  function suspend() {
+    if (ac && ac.state === 'running') ac.suspend();
+  }
+
+  function wake() {
+    if (ac && ac.state === 'suspended' && !muted) ac.resume();
+  }
+
+  return {
+    resume,
+    setMuted,
+    stopPad,
+    suspend,
+    wake,
+    duck,
+    isMuted: () => muted,
+    play(name) {
+      const f = CUES[name];
+      if (!f) return;
+      /* nothing to play into until the page has been touched */
+      if (!unlocked && !ac) return;
+      resume();
+      f();
+    },
+  };
+})();
+
+
+/* ============================================================
    RECORDER CUE SYSTEM
    ============================================================ */
 
@@ -139,6 +400,11 @@ function cue(name) {
       t: (performance.now() - recT0) / 1000,
     });
   }
+
+
+  /* every beat of the film also plays its note */
+
+  Sound.play(name);
 }
 
 
@@ -2872,14 +3138,68 @@ makeWish.addEventListener(
       true;
 
 
-    makeWish.textContent =
-      'Wish made ✨';
+    const label =
+      makeWish.querySelector(
+        '.memory__buttonLabel'
+      );
+
+
+    if (label) {
+      label.textContent =
+        'Opening… ✨';
+    } else {
+      makeWish.textContent =
+        'Opening… ✨';
+    }
+
+
+    cue('magic');
 
 
     createBirthdayMagic();
 
 
     setTimeout(() => {
+
+      /*
+         Hand over to the memory chapters. story.js listens for
+         this. If that file is missing or failed to load, nothing
+         listens and we fall back to the original final card, so
+         the film is never left with a dead button.
+      */
+
+      /*
+         Ask the story pages to open. If story.js loaded, it is
+         already listening and will take the screen.
+      */
+
+      window.dispatchEvent(
+        new CustomEvent(
+          'bday:story'
+        )
+      );
+
+
+      /*
+         If it never loaded, nothing listened and the flag stays
+         down -- so fall back to the original card rather than
+         leaving her on a dead button. If it is merely still
+         loading, leave a note it will pick up when it arrives.
+      */
+
+      if (window.bdayStoryOpen) {
+        return;
+      }
+
+
+      if (window.bdayHasStory) {
+
+        window.bdayStoryPending = true;
+
+        return;
+      }
+
+
       finalMessage.classList.add(
         'show'
       );
@@ -5200,6 +5520,14 @@ archery.addEventListener(
     }
 
 
+    /*
+       Browsers only allow audio to start inside a real
+       user gesture. This is the earliest one we get.
+    */
+
+    Sound.resume();
+
+
     drawing = true;
 
 
@@ -5525,6 +5853,25 @@ function resetAll() {
 
 
   /*
+     Fade the ambient drone so it
+     never stacks on replay.
+  */
+
+  Sound.stopPad();
+
+
+  /*
+     Close and rearm the memory chapters.
+  */
+
+  window.dispatchEvent(
+    new CustomEvent(
+      'bday:reset'
+    )
+  );
+
+
+  /*
      Hide personal photo.
   */
 
@@ -5561,8 +5908,19 @@ function resetAll() {
     false;
 
 
-  makeWish.textContent =
-    'Make a wish ✨';
+  const wishLabel =
+    makeWish.querySelector(
+      '.memory__buttonLabel'
+    );
+
+
+  if (wishLabel) {
+    wishLabel.textContent =
+      'Open your gift ✨';
+  } else {
+    makeWish.textContent =
+      'Open your gift ✨';
+  }
 
 
   /*
@@ -5642,12 +6000,21 @@ function resetAll() {
 
 function resize() {
 
+  /*
+     Cap the backing store. Phones commonly report 3, which is
+     four times the fragment work of 1x across a full-screen
+     canvas of blurred sprites and god rays -- for no visible
+     gain at that pixel density.
+  */
+
   dpr =
     Math.min(
       window.devicePixelRatio ||
         1,
 
-      2
+      window.innerWidth < 520
+        ? 1.75
+        : 2
     );
 
 
@@ -5739,10 +6106,45 @@ function resize() {
 
 let resizeRAF = 0;
 
+let lastVW =
+  window.innerWidth;
+
+let lastVH =
+  window.innerHeight;
+
 
 window.addEventListener(
   'resize',
   () => {
+
+    const vw =
+      window.innerWidth;
+
+    const vh =
+      window.innerHeight;
+
+
+    /*
+       On mobile, hiding or showing the URL bar fires resize with
+       a height-only change. resize() rebuilds every sprite, the
+       whole scene AND the film timeline -- far too expensive to
+       run for a scrolling toolbar, and visible as a hitch. Only
+       a width change or a large height change is a real one.
+    */
+
+    if (
+      vw === lastVW &&
+      Math.abs(vh - lastVH) < 120
+    ) {
+      lastVH = vh;
+
+      return;
+    }
+
+
+    lastVW = vw;
+    lastVH = vh;
+
 
     if (resizeRAF) {
       return;
@@ -5758,6 +6160,95 @@ window.addEventListener(
           resize();
         }
       );
+  }
+);
+
+
+/* ============================================================
+   TAB VISIBILITY
+   ============================================================ */
+
+/*
+   Browsers throttle rAF when the tab is hidden, but GSAP keeps
+   ticking on its own clock -- so the canvas and the timeline
+   drift apart while she is in another app. Park everything, and
+   shift the tree's start time forward by exactly the gap so it
+   resumes where it left off rather than restarting its growth.
+*/
+
+let hiddenAt = 0;
+
+let wasFilmActive = false;
+
+
+document.addEventListener(
+  'visibilitychange',
+  () => {
+
+    if (document.hidden) {
+
+      hiddenAt =
+        performance.now();
+
+
+      if (
+        filmTL &&
+        filmTL.isActive()
+      ) {
+        wasFilmActive = true;
+
+        filmTL.pause();
+      }
+
+
+      if (treeRAF) {
+        cancelAnimationFrame(
+          treeRAF
+        );
+
+        treeRAF = 0;
+      }
+
+
+      Sound.suspend();
+
+      return;
+    }
+
+
+    const gap =
+      performance.now() -
+      hiddenAt;
+
+
+    if (treeStartT) {
+      treeStartT += gap;
+      treeLastT  += gap;
+    }
+
+
+    if (
+      wasFilmActive &&
+      filmTL
+    ) {
+      wasFilmActive = false;
+
+      filmTL.resume();
+    }
+
+
+    if (
+      !treeRAF &&
+      treeStartT
+    ) {
+      treeRAF =
+        requestAnimationFrame(
+          treeFrame
+        );
+    }
+
+
+    Sound.wake();
   }
 );
 
@@ -5820,3 +6311,95 @@ if (isRecord) {
 
   };
 }
+
+
+/* ============================================================
+   SOUND TOGGLE
+   ============================================================ */
+
+const soundBtn = $('soundBtn');
+
+
+if (soundBtn) {
+
+  soundBtn.setAttribute(
+    'aria-pressed',
+
+    Sound.isMuted()
+      ? 'true'
+      : 'false'
+  );
+
+
+  soundBtn.addEventListener(
+    'click',
+    () => {
+
+      const next =
+        !Sound.isMuted();
+
+
+      Sound.setMuted(next);
+
+
+      soundBtn.setAttribute(
+        'aria-pressed',
+
+        next
+          ? 'true'
+          : 'false'
+      );
+
+
+      /*
+         Unmuting is itself a gesture, so it is
+         a valid moment to wake the context.
+      */
+
+      if (!next) {
+        Sound.resume();
+      }
+    }
+  );
+}
+
+
+/* ============================================================
+   STORY BRIDGE
+   ============================================================ */
+
+/*
+   story.js is an optional companion module. These listeners are
+   harmless if it never loads.
+*/
+
+window.addEventListener(
+  'bday:duck',
+  (e) => {
+
+    Sound.duck(
+      !!(
+        e.detail &&
+        e.detail.on
+      )
+    );
+  }
+);
+
+
+window.addEventListener(
+  'bday:storyend',
+  () => {
+
+    /*
+       She closed the chapters. Offer the replay
+       again so the film is never a dead end.
+    */
+
+    if (!replayArmed) {
+      replayArmed = true;
+
+      armReplay();
+    }
+  }
+);

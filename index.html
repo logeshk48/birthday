@@ -3,10 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Happy Birthday ♥ — a little film</title>
-  <meta name="description" content="A cinematic birthday film in four acts: a beating heart you open with a tap, a rush of colour, a kinetic wish, and a tree that blooms into a heart of petals." />
+  <title>Happy Birthday, Pavi ♥ — a little film</title>
+  <meta name="description" content="A cinematic birthday film in five acts: draw a Cupid's bow, strike a beating heart, watch it flood into colour, and see a tree bloom into a heart of petals." />
   <meta name="theme-color" content="#f7e7dc" />
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+
+  <!-- Link previews: WhatsApp / Instagram / Telegram / iMessage -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://logeshk48.github.io/birthday/" />
+  <meta property="og:title" content="Happy Birthday, Pavi ♥" />
+  <meta property="og:description" content="Open this. There’s a little film waiting for you." />
+  <meta property="og:image" content="https://logeshk48.github.io/birthday/pavi.jpg" />
+  <meta property="og:image:alt" content="A birthday surprise for Pavi" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Happy Birthday, Pavi ♥" />
+  <meta name="twitter:description" content="Open this. There’s a little film waiting for you." />
+  <meta name="twitter:image" content="https://logeshk48.github.io/birthday/pavi.jpg" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,6 +27,7 @@
 
   <script>document.documentElement.classList.add('js')</script>
   <link rel="stylesheet" href="./birthday.css" />
+  <link rel="stylesheet" href="./story.css" />
 </head>
 <body>
   <main class="scene">
@@ -30,12 +44,13 @@
       <div class="hero__bg" aria-hidden="true"></div>
       <div class="hero__motes" id="motes" aria-hidden="true"></div>
 
-      <p class="hero__eyebrow" id="eyebrow">a little something, for you</p>
+      <p class="hero__eyebrow" id="eyebrow">a little something, made for you</p>
 
       <!-- THE TARGET — the heart the arrow flies to (GSAP animates .target) -->
       <div class="targetWrap" aria-hidden="true">
         <div class="target" id="target">
           <span class="heart__glow" aria-hidden="true"></span>
+          <span class="heart__ripple" aria-hidden="true"></span>
           <span class="target__heart" id="targetHeart">
             <svg class="heart__svg" viewBox="0 0 100 92" aria-hidden="true">
               <defs>
@@ -156,7 +171,11 @@
           </svg>
       </div>
 
-      <p class="hero__hint" id="hint">pull &amp; release</p>
+      <p class="hero__hint" id="hint">
+        <span class="hero__hintPull">pull back</span>
+        <span class="hero__hintDot" aria-hidden="true">·</span>
+        <span class="hero__hintLet">and let go</span>
+      </p>
     </section>
 
     <!-- ACT 2 — THE FLOOD -----------------------------------------------------
@@ -173,6 +192,7 @@
       <div class="blob blob--2"></div>
       <div class="blob blob--3"></div>
       <div class="fgrid" id="fgrid"></div>
+      <div class="fshimmer"></div>
       <div class="fvignette"></div>
 
       <div class="camera" id="camera">
@@ -197,38 +217,24 @@
 
     <!-- ACT 4 — THE HAND-LETTERED WISH (over the tree) ------------------------ -->
     <div class="wish" id="wish" aria-hidden="true">
-      <p class="wish__eyebrow" id="wEyebrow">a little something for you</p>
+      <p class="wish__eyebrow" id="wEyebrow">and so, a new year begins</p>
       <div class="wish__heroWrap"><h1 class="wish__hero" id="wHero">Happy Birthday, Pavi</h1></div>
       <span class="wish__rule" id="wRule"></span>
       <p class="wish__sub" id="wSub">here&rsquo;s to a year that blooms</p>
     </div>
 
     <!-- PERSONAL ACT 5 — PAVI'S LITTLE BIRTHDAY MEMORY ------------------------ -->
+    <!-- After the tree settles, one invitation floats over it.
+         The card that used to live here is gone: the story now
+         ends with the birthday wish, so it was said twice. The
+         ids are kept because birthday.js reaches for them. -->
     <section class="memory" id="memory" aria-hidden="true">
       <div class="memory__card">
-        <div class="memory__photoWrap">
-          <img
-            class="memory__photo"
-            src="/pavi.jpg"
-            alt="A special birthday memory"
-            draggable="false"
-          />
-          <div class="memory__shine" aria-hidden="true"></div>
-        </div>
-
-        <p class="memory__eyebrow">28 August 2026</p>
-
-        <h2 class="memory__title">Happy Birthday, Pavi ✨</h2>
-
-        <p class="memory__text">
-          Wishing you lots of happiness,<br>
-          genuine smiles,<br>
-          beautiful moments,<br>
-          and a year that feels truly special.
-        </p>
+        <p class="memory__eyebrow"><span>18 August 2026</span></p>
 
         <button class="memory__button" id="makeWish" type="button">
-          Make a wish ✨
+          <span class="memory__buttonGlow" aria-hidden="true"></span>
+          <span class="memory__buttonLabel">Open your gift ✨</span>
         </button>
       </div>
     </section>
@@ -243,8 +249,18 @@
           made you smile today.
         </p>
         <span>Have an amazing year ahead ♡</span>
+        <em class="final-message__close">tap anywhere to close</em>
       </div>
     </div>
+
+    <!-- Sound toggle -->
+    <button class="sound" id="soundBtn" type="button" aria-pressed="false" aria-label="Toggle sound">
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4z"/>
+        <path class="sound__wave" fill="currentColor" d="M16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/>
+        <path class="sound__slash" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" d="M15 8l6 8"/>
+      </svg>
+    </button>
 
     <!-- Play the film again once it has settled. -->
     <button class="replay" id="replay" type="button" hidden>
@@ -265,5 +281,9 @@
   <p class="sr-only">Happy Birthday, Pavi. Wishing you a wonderful year ahead.</p>
 
   <script type="module" src="./birthday.js"></script>
+
+  <!-- The memory pages. A plain module script: if it parses, it
+       sets window.bdayHasStory itself. No promise to lose. -->
+  <script type="module" src="./story.js"></script>
 </body>
 </html>

@@ -1,0 +1,374 @@
+/* ============================================================
+   THE STORY — three memory pages after the film
+   ============================================================ */
+
+body.story-open{ overflow:hidden; }
+
+.story{
+  position:fixed; inset:0;
+  z-index:60;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .9s ease, visibility .9s ease;
+  background:
+    radial-gradient(120% 70% at 50% 0%, #fff8f1 0%, #fdeade 38%, #f8d9c8 72%, #f0c2b3 100%);
+}
+.story.is-open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+
+.story__bar{
+  position:absolute; top:0; left:0; right:0;
+  height:3px; z-index:3;
+  background:rgba(168,80,105,.12);
+}
+.story__fill{
+  height:100%;
+  transform:scaleX(0);
+  transform-origin:left center;
+  background:linear-gradient(90deg,#ffcf6a,#e0577f);
+  transition:transform .12s linear;
+}
+
+.story__scroll{
+  position:absolute; inset:0;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding-bottom:5vh;
+}
+
+.story__hint{
+  position:absolute; left:0; right:0; bottom:14px;
+  z-index:3;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  pointer-events:none;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:11px; font-style:italic;
+  letter-spacing:.24em; text-transform:uppercase;
+  color:rgba(150,70,95,.6);
+  transition:opacity .5s ease;
+}
+.story__hint i{
+  display:block; width:1px; height:18px;
+  background:linear-gradient(180deg,rgba(150,70,95,.6),transparent);
+  animation:stHint 1.9s ease-in-out infinite;
+}
+@keyframes stHint{
+  0%,100%{ transform:translateY(-4px); opacity:.35; }
+  50%    { transform:translateY(4px);  opacity:1; }
+}
+.story.is-scrolled .story__hint{ opacity:0; }
+
+/* ============================================================
+   PAGE
+   ============================================================ */
+.st__page{
+  min-height:100svh;
+  display:flex; align-items:center; justify-content:center;
+  padding:11vh 22px 9vh;
+}
+.st__inner{
+  width:min(94vw,540px);
+  text-align:center;
+}
+
+.st__kicker{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic; font-weight:600;
+  font-size:12px;
+  letter-spacing:.24em; text-transform:uppercase;
+  color:#c08196;
+  margin-bottom:8px;
+}
+.st__title{
+  font-family:"Fraunces",Georgia,serif;
+  font-weight:700;
+  font-size:clamp(28px,7.4vw,42px);
+  line-height:1.1;
+  color:#8a3552;
+  margin-bottom:26px;
+}
+.st__sub{
+  font-family:"Fraunces",Georgia,serif;
+  font-weight:600;
+  font-size:clamp(20px,5.4vw,27px);
+  line-height:1.15;
+  color:#9c3f5c;
+  margin-bottom:18px;
+}
+.st__part{ margin-bottom:8px; }
+.st__divider{
+  display:block;
+  width:64px; height:1px;
+  margin:46px auto 40px;
+  background:linear-gradient(90deg,transparent,rgba(168,80,105,.5),transparent);
+}
+
+/* ============================================================
+   MEDIA
+   ============================================================ */
+.st__m{
+  position:relative;
+  width:100%;
+  border-radius:20px;
+  overflow:hidden;
+  background:#f6ddd0;
+  box-shadow:0 20px 50px rgba(80,14,40,.2), 0 4px 14px rgba(80,14,40,.1);
+  margin-bottom:22px;
+}
+.st__m--portrait{ aspect-ratio:4/5; }
+.st__m--tall{ aspect-ratio:9/16; }
+.st__m--fill{ height:100%; margin-bottom:0; }
+
+.st__img,
+.st__video{
+  width:100%; height:100%;
+  display:block;
+  object-fit:cover;
+  user-select:none;
+}
+
+.st__m--empty{
+  display:grid; place-items:center;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(255,255,255,.5) 0 12px,
+      rgba(246,221,208,.6) 12px 24px);
+  border:1px dashed rgba(168,80,105,.32);
+}
+.st__m--empty.st__m--fill{ min-height:100%; }
+.st__ph{ font-size:30px; opacity:.4; }
+
+.st__vBtn{
+  position:absolute; inset:0;
+  display:grid; place-items:center;
+  border:0; padding:0;
+  background:transparent;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.st__vIcon{
+  display:grid; place-items:center;
+  width:50px; height:50px;
+  border-radius:50%;
+  font-size:15px;
+  color:#8a3552;
+  padding-left:3px;
+  background:rgba(255,248,242,.88);
+  box-shadow:0 8px 24px rgba(80,14,40,.28);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  transition:transform .3s cubic-bezier(.2,.7,.2,1), opacity .3s ease;
+}
+.st__vBtn:hover .st__vIcon{ transform:scale(1.08); }
+.st__vBtn.is-playing .st__vIcon{ opacity:0; transform:scale(.6); }
+
+/* ============================================================
+   PAGE 2 — VIDEO GRID
+   ============================================================ */
+.st__grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;
+  margin:26px 0 10px;
+}
+.st__cell{ margin:0; }
+.st__cell .st__m{ margin-bottom:8px; border-radius:16px; }
+.st__cap{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic;
+  font-size:13px;
+  line-height:1.35;
+  color:#a4788a;
+}
+
+/* ============================================================
+   PAGE 3 — THREE PHOTO SPLIT
+   ============================================================ */
+.st__split{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto auto;
+  gap:10px;
+  margin-bottom:28px;
+  aspect-ratio:1/1;
+}
+.st__splitCell{ border-radius:16px; }
+.st__splitCell--1{ grid-row:1 / span 2; }
+.st__splitCell--2{ grid-column:2; grid-row:1; }
+.st__splitCell--3{ grid-column:2; grid-row:2; }
+
+/* ============================================================
+   TEXT
+   ============================================================ */
+.st__p{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:clamp(17px,4.4vw,20px);
+  line-height:1.6;
+  color:#7d5261;
+  margin-bottom:12px;
+}
+.st__small{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic;
+  font-size:clamp(14px,3.7vw,16px);
+  line-height:1.55;
+  color:#a97e8d;
+  margin-top:14px;
+}
+.st__note{
+  display:inline-flex; align-items:center; gap:10px;
+  margin:14px 0 16px;
+  padding:11px 19px 11px 15px;
+  border-radius:15px;
+  background:rgba(255,255,255,.85);
+  border:1px solid rgba(168,80,105,.16);
+  box-shadow:0 10px 28px -12px rgba(100,20,50,.4);
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:clamp(15px,4vw,18px);
+  color:#8a3552;
+}
+.st__noteDot{
+  width:9px; height:9px; border-radius:50%;
+  background:#e0577f; flex:none;
+  animation:stDot 2.2s ease-out infinite;
+}
+@keyframes stDot{
+  0%      { box-shadow:0 0 0 0 rgba(224,87,127,.55); }
+  70%,100%{ box-shadow:0 0 0 11px rgba(224,87,127,0); }
+}
+
+/* ============================================================
+   FINALE TEXT
+   ============================================================ */
+.st__fEyebrow{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic;
+  font-size:14px;
+  letter-spacing:.16em;
+  color:#b0788c;
+  margin-bottom:22px;
+}
+.st__fEyebrow span{ position:relative; display:inline-block; padding:0 16px; }
+.st__fEyebrow span::before,
+.st__fEyebrow span::after{
+  content:""; position:absolute; top:50%;
+  width:30px; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(176,120,140,.6),transparent);
+}
+.st__fEyebrow span::before{ right:100%; }
+.st__fEyebrow span::after{ left:100%; }
+
+.st__fTitle{
+  font-family:"Fraunces",Georgia,serif;
+  font-weight:900;
+  font-size:clamp(32px,9vw,56px);
+  line-height:1;
+  color:#8a3552;
+}
+.st__fName{
+  font-family:"Great Vibes",cursive;
+  font-size:clamp(46px,13vw,84px);
+  line-height:1.06;
+  margin:2px 0 18px;
+  background:linear-gradient(180deg,#e85a83 0%,#c41f52 52%,#9c0f42 100%);
+  -webkit-background-clip:text; background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 2px 5px rgba(130,18,55,.28));
+}
+.st__signoff{
+  margin-top:20px;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic;
+  font-size:clamp(16px,4.2vw,19px);
+  color:#a85069;
+}
+.st__close{
+  margin-top:32px;
+  padding:12px 26px;
+  border-radius:999px;
+  border:1px solid rgba(150,60,80,.2);
+  background:rgba(255,247,241,.9);
+  color:#8a4059;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:13px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  cursor:pointer;
+  box-shadow:0 8px 25px rgba(100,20,50,.14);
+  transition:transform .25s ease, background .25s ease;
+}
+.st__close:hover{ transform:translateY(-2px); background:#fffaf6; }
+.st__close:active{ transform:scale(.96); }
+
+/* ============================================================
+   THE RISE
+   ============================================================ */
+.st__rise{
+  opacity:0;
+  transform:translateY(24px);
+  filter:blur(5px);
+  transition:opacity .8s ease, transform 1s cubic-bezier(.2,.7,.2,1), filter .8s ease;
+}
+.st__rise.is-in{
+  opacity:1; transform:translateY(0); filter:blur(0);
+}
+.st__m.st__rise{ transform:translateY(30px) scale(.96); }
+.st__m.st__rise.is-in{ transform:translateY(0) scale(1); }
+
+@media(max-width:600px){
+  .st__page{ padding:9vh 16px 8vh; }
+  .st__grid{ gap:10px; }
+  .st__split{ gap:8px; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .st__rise{ opacity:1 !important; transform:none !important; filter:none !important; transition:none !important; }
+  .st__noteDot, .story__hint i{ animation:none !important; }
+}
+
+
+/* ============================================================
+   THE NEXT BUTTON — carries her to the following page
+   ============================================================ */
+.st__next{
+  display:inline-flex; align-items:center; gap:9px;
+  margin-top:34px;
+  padding:13px 26px;
+  border-radius:999px;
+  border:1px solid rgba(150,60,80,.2);
+  background:rgba(255,247,241,.92);
+  color:#8a4059;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-style:italic;
+  font-size:clamp(15px,4vw,17px);
+  letter-spacing:.06em;
+  cursor:pointer;
+  box-shadow:0 8px 25px rgba(100,20,50,.14);
+  transition:transform .25s ease, background .25s ease, box-shadow .25s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.st__next::after{
+  content:"\2193";
+  font-style:normal;
+  font-size:13px;
+  opacity:.55;
+  animation:stNext 2.2s ease-in-out infinite;
+}
+@keyframes stNext{
+  0%,100%{ transform:translateY(-2px); opacity:.4; }
+  50%    { transform:translateY(2px);  opacity:.9; }
+}
+.st__next:hover{
+  transform:translateY(-2px);
+  background:#fffaf6;
+  box-shadow:0 12px 30px rgba(100,20,50,.2);
+}
+.st__next:active{ transform:scale(.96); }
+
+@media (prefers-reduced-motion: reduce){
+  .st__next::after{ animation:none; }
+}
